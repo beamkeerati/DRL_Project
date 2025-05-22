@@ -7,6 +7,10 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
+from .flamingo_goal_env import FlamingoGoalEnv
+import lab.flamingo.tasks.manager_based.locomotion.velocity.mdp.goal_rewards as goal_rewards
+from isaaclab.sim.spawners import UsdFileCfg  # ADD THIS LINE
+
 from isaaclab.managers import CurriculumTermCfg as CurrTerm
 import lab.flamingo.tasks.manager_based.locomotion.velocity.mdp as mdp
 from lab.flamingo.tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
@@ -134,7 +138,9 @@ class FlamingoFlatEnvCfg(LocomotionVelocityFlatEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
+        
         # scene
+        
         self.scene.robot = FLAMINGO_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
 
@@ -272,3 +278,61 @@ class FlamingoFlatEnvCfg_PLAY(FlamingoFlatEnvCfg):
             ".*_shoulder_link",
             ".*_leg_link",
         ]
+        
+@configclass
+class FlamingoGoalRewardsCfg():
+    """NEW rewards class specifically for goal-seeking"""
+    
+    # Existing balance rewards (reduced weights to make room for goal rewards)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-2.0)  # Reduced from -5.0
+    base_height = RewTerm(
+        func=mdp.base_height_adaptive_l2,
+        weight=-10.0,  # Reduced from -25.0
+        params={
+            "target_height": 0.36288,
+            "asset_cfg": SceneEntityCfg("robot", body_names="base_link"),
+        },
+    )
+    
+    # NEW: Goal-seeking rewards
+    distance_to_target = RewTerm(
+        func=goal_rewards.distance_to_target_exp,
+        weight=5.0
+    )
+    
+    reached_target_bonus = RewTerm(
+        func=goal_rewards.reached_target_bonus,
+        weight=100.0
+    )
+    
+    # Keep essential safety rewards
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    undesired_contacts = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=-1.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*_shoulder_link", ".*_hip_link"]),
+            "threshold": 1.0,
+        },
+    )
+    
+    # Basic movement penalties
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+    joint_applied_torque_limits = RewTerm(
+        func=mdp.applied_torque_limits,
+        weight=-0.1,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*_joint")},
+    )
+    
+@configclass  
+class FlamingoGoalEnvCfg(FlamingoFlatEnvCfg):
+    """NEW config class specifically for goal-seeking task"""
+    
+    # Use the goal-specific rewards instead of regular rewards
+    rewards: FlamingoGoalRewardsCfg = FlamingoGoalRewardsCfg()
+    
+    def __post_init__(self):
+        super().__post_init__()
+        # The target is already added in the parent __post_init__
+        # We can modify goal-specific settings here
+        pass

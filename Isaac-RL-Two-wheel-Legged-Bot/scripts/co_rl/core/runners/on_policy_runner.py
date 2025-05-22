@@ -114,6 +114,7 @@ class OnPolicyRunner:
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
+                    actions = self.constrain_to_wheels_only(actions)
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
                     # move to the right device
                     obs, critic_obs, rewards, dones = (
@@ -313,3 +314,18 @@ class OnPolicyRunner:
 
     def add_git_repo_to_log(self, repo_file_path):
         self.git_status_repos.append(repo_file_path)
+        
+    def constrain_to_wheels_only(self, actions):
+        """Fix all leg joints, only allow wheel control"""
+        constrained_actions = actions.clone()
+        
+        # Fix all leg joints to zero (indices 0-5)
+        constrained_actions[:, 0:6] = 0.0  # Hip, knee, ankle joints fixed
+        
+        # Keep wheel actions (indices 6-7) as-is
+        constrained_actions[:, 6:8] = actions[:, 6:8]  # Already preserved
+        
+        # Optional: Scale wheel actions to reasonable range
+        # constrained_actions[:, 6:8] = torch.clamp(actions[:, 6:8], -1.0, 1.0)
+        
+        return constrained_actions

@@ -39,5 +39,4 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Isaac Sim :: 4.5",
     ],
-    zip_safe=False,
 )
