@@ -316,8 +316,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👥 Authors
 
 - **Beam Keerati** - *Initial work* - [beamkeerati](https://github.com/beamkeerati)
+- **Mart Mananswin**
 
-## 🙏 Acknowledgments
+<!-- ## 🙏 Acknowledgments
 
 - NVIDIA Isaac Lab team for the simulation framework
 - ETH Zurich RSL for the legged robotics research
@@ -332,4 +333,4 @@ For questions or collaboration:
 - LinkedIn: [Your LinkedIn Profile]
 
 ---
-⭐ Star this repository if you find it helpful!
+⭐ Star this repository if you find it helpful! -->

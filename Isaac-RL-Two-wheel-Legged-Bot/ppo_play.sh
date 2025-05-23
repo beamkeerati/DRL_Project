@@ -8,7 +8,7 @@ python scripts/co_rl/train.py \
   --num_policy_stacks 2 \
   --num_critic_stacks 2 \
   --resume True \
-  --load_run "PPO" \
+  --load_run "ppo" \
   --max_iterations 5000 \
   +learning_rate=0.0003 \
   +num_learning_epochs=10 \
