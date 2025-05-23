@@ -28,6 +28,14 @@ parser.add_argument("--experiment_description", type=str, default=None, help="De
 parser.add_argument("--num_policy_stacks", type=int, default=2, help="Number of policy stacks.")
 parser.add_argument("--num_critic_stacks", type=int, default=2, help="Number of critic stacks.")
 
+# Add command line argument
+parser.add_argument("--residual", action="store_true", default=False, 
+                   help="Enable residual RL with PD control")
+parser.add_argument("--residual_scale", type=float, default=0.3,
+                   help="Scale for residual RL actions")
+parser.add_argument("--pd_ratio", type=float, default=0.7,
+                   help="Ratio of PD control (0-1)")
+
 # append CO-RL cli arguments
 cli_args.add_co_rl_args(parser)
 # append AppLauncher cli args
@@ -140,6 +148,33 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg | Man
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
     # wrap around environment for co-rl
     env = CoRlVecEnvWrapper(env, agent_cfg)
+    
+    if args_cli.residual:
+        print("[INFO] Enabling Residual RL mode with PD control")
+        
+        # Configure PD gains for your robot (these are example values, adjust as needed)
+        # For a two-wheeled legged robot, you might want different gains for wheels vs legs
+        pd_kp = [70] * 8  # Proportional gains for 8 joints
+        pd_kd = [0.05] * 8   # Derivative gains for 8 joints
+        
+        # Add this before enabling residual mode to debug
+        if hasattr(env.unwrapped, "scene"):
+            print("[DEBUG] Available scene entities:")
+            if hasattr(env.unwrapped.scene, "articulations"):
+                print(f"  Articulations: {list(env.unwrapped.scene.articulations.keys())}")
+            # Check direct attributes
+            for attr in dir(env.unwrapped.scene):
+                if not attr.startswith("_") and hasattr(getattr(env.unwrapped.scene, attr), "data"):
+                    print(f"  {attr}: {type(getattr(env.unwrapped.scene, attr))}")
+        # Enable residual mode with proper configuration
+        env.enable_residual_mode(
+            pd_kp=pd_kp,
+            pd_kd=pd_kd,
+            residual_scale=args_cli.residual_scale,
+            pd_ratio=args_cli.pd_ratio,
+            asset_name="robot"  # This is the standard name in IsaacLab scenes
+        )
+    
     print("agent_cfg.device: , agent_cfg.device")
     # create runner from co-rl
     if is_off_policy:
@@ -149,6 +184,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg | Man
             runner = SRMOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
         elif args_cli.algo == "ppo":
             runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+            
     # write git state to logs
     runner.add_git_repo_to_log(__file__)
     # save resume path before creating a new log_dir

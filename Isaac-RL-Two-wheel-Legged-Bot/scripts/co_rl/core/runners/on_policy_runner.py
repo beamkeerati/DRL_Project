@@ -115,6 +115,8 @@ class OnPolicyRunner:
                 for i in range(self.num_steps_per_env):
                     actions = self.alg.act(obs, critic_obs)
                     actions = self.constrain_to_wheels_only(actions)
+                    # print("debug")
+                    # print(actions.to(self.env.device))
                     obs, rewards, dones, infos = self.env.step(actions.to(self.env.device))
                     # move to the right device
                     obs, critic_obs, rewards, dones = (

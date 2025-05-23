@@ -7,7 +7,40 @@ from dataclasses import MISSING
 from typing import Literal
 
 from isaaclab.utils import configclass
+# Add to imports
+from typing import Optional
 
+# Add new configuration class
+@configclass
+class ResidualRLCfg:
+    """Configuration for Residual RL with PD control"""
+    
+    enabled: bool = False
+    """Whether to use residual RL mode"""
+    
+    residual_scale: float = 0.3
+    """Scale factor for RL residual actions (0-1)"""
+    
+    pd_ratio: float = 0.7
+    """Ratio of PD control vs RL (0-1)"""
+    
+    pd_kp: Optional[list[float]] = None
+    """Proportional gains for PD controller"""
+    
+    pd_kd: Optional[list[float]] = None
+    """Derivative gains for PD controller"""
+    
+    curriculum_schedule: bool = True
+    """Whether to use curriculum learning for residual scale"""
+    
+    initial_pd_ratio: float = 0.9
+    """Initial PD ratio for curriculum learning"""
+    
+    final_pd_ratio: float = 0.5
+    """Final PD ratio after curriculum"""
+    
+    curriculum_steps: int = 1000
+    """Number of iterations for curriculum"""
 
 @configclass
 class CoRlOffPolicyCfg:
@@ -170,6 +203,10 @@ class CoRlSrmPpoAlgorithmCfg:
 
 @configclass
 class CoRlPolicyRunnerCfg:
+    
+    """Residual RL configuration"""
+    residual: ResidualRLCfg = ResidualRLCfg()
+    
     """Configuration of the runner for on-policy algorithms."""
 
     seed: int = 42

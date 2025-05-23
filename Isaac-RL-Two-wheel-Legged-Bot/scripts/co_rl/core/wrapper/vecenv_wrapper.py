@@ -12,6 +12,8 @@ from lab.flamingo.isaaclab.isaaclab.envs.manager_based_constraint_rl_env import 
 from scripts.co_rl.core.wrapper import CoRlPolicyRunnerCfg
 from scripts.co_rl.core.utils.state_handler import StateHandler
 
+# Import our new wrapper
+from scripts.co_rl.core.wrapper.residual_wrapper import ResidualRLWrapper
 
 class CoRlVecEnvWrapper(VecEnv):
     def __init__(self, env: ManagerBasedRLEnv, agent_cfg: CoRlPolicyRunnerCfg):
@@ -137,6 +139,27 @@ class CoRlVecEnvWrapper(VecEnv):
     Properties
     """
 
+    def enable_residual_mode(
+            self,
+            pd_kp=1.0,
+            pd_kd=0.5,
+            residual_scale=0.3,
+            pd_ratio=0.7,
+            asset_name="robot",  # Add configurable asset name
+        ):
+            """Enable Residual RL mode with PD control."""
+            self.residual_wrapper = ResidualRLWrapper(
+                wrapper_env=self,  # for get_observations()
+                base_env=self.unwrapped,  # Use unwrapped environment for device access
+                pd_kp=pd_kp,
+                pd_kd=pd_kd,
+                residual_scale=residual_scale,
+                pd_ratio=pd_ratio,
+                asset_name=asset_name,  # Pass the asset name
+            )
+            self.residual_mode = True
+
+
     def get_observations(self) -> tuple[torch.Tensor, dict]:
         """Returns the current observations of the environment."""
         if hasattr(self.unwrapped, "observation_manager"):
@@ -209,32 +232,37 @@ class CoRlVecEnvWrapper(VecEnv):
         return obs_dict["policy"], {"observations": obs_dict}
 
     def step(self, actions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
-        obs_dict, rew, terminated, truncated, extras = self.env.step(actions)
-        if not self.use_constraint_rl:
-            dones = (terminated | truncated).to(dtype=torch.long)
+        
+        """Modified step to support residual mode"""
+        if getattr(self, "residual_mode", False):
+            return self.residual_wrapper.step(actions)
         else:
-            dones = torch.max(terminated, truncated).to(dtype=torch.float32)
-        # Update policy observations via state handler
-        
-        if hasattr(self, "policy_state_handler"):
-            policy_obs = self.policy_state_handler.update(
-                obs_dict["stack_policy"], obs_dict["none_stack_policy"]
-            )
-            obs_dict["policy"] = policy_obs        
+            obs_dict, rew, terminated, truncated, extras = self.env.step(actions)
+            if not self.use_constraint_rl:
+                dones = (terminated | truncated).to(dtype=torch.long)
+            else:
+                dones = torch.max(terminated, truncated).to(dtype=torch.float32)
+            # Update policy observations via state handler
+            
+            if hasattr(self, "policy_state_handler"):
+                policy_obs = self.policy_state_handler.update(
+                    obs_dict["stack_policy"], obs_dict["none_stack_policy"]
+                )
+                obs_dict["policy"] = policy_obs        
 
-        if hasattr(self, "critic_state_handler"):
-            critic_obs = self.critic_state_handler.update(
-                obs_dict["stack_critic"], obs_dict["none_stack_critic"]
-            )
-            obs_dict["critic"] = critic_obs
+            if hasattr(self, "critic_state_handler"):
+                critic_obs = self.critic_state_handler.update(
+                    obs_dict["stack_critic"], obs_dict["none_stack_critic"]
+                )
+                obs_dict["critic"] = critic_obs
 
-        policy_obs = obs_dict["policy"]
-        extras["observations"] = obs_dict
+            policy_obs = obs_dict["policy"]
+            extras["observations"] = obs_dict
 
-        if not self.unwrapped.cfg.is_finite_horizon:
-            extras["time_outs"] = truncated
-        
-        return policy_obs, rew, dones, extras
+            if not self.unwrapped.cfg.is_finite_horizon:
+                extras["time_outs"] = truncated
+            
+            return policy_obs, rew, dones, extras
 
     def close(self):  # noqa: D102
         return self.env.close()
