@@ -16,7 +16,7 @@ python scripts/co_rl/train.py \
     --max_iterations 5000 \
     --residual \
     --residual_scale 0.3 \
-    --pd_ratio 0.7 \
+    --pd_ratio 0.5 \
     --run_name residual_ppo\
     +learning_rate=0.0003 \
     +num_learning_epochs=10 \
