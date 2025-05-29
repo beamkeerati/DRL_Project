@@ -140,24 +140,37 @@ class CoRlVecEnvWrapper(VecEnv):
     """
 
     def enable_residual_mode(
-            self,
-            pd_kp=1.0,
-            pd_kd=0.5,
-            residual_scale=0.3,
-            pd_ratio=0.7,
-            asset_name="robot",  # Add configurable asset name
-        ):
-            """Enable Residual RL mode with PD control."""
-            self.residual_wrapper = ResidualRLWrapper(
-                wrapper_env=self,  # for get_observations()
-                base_env=self.unwrapped,  # Use unwrapped environment for device access
-                pd_kp=pd_kp,
-                pd_kd=pd_kd,
-                residual_scale=residual_scale,
-                pd_ratio=pd_ratio,
-                asset_name=asset_name,  # Pass the asset name
-            )
-            self.residual_mode = True
+        self,
+        pd_kp=1.0,
+        pd_kd=0.5,
+        residual_scale=0.3,
+        pd_ratio=0.7,
+        asset_name="robot",
+        curriculum_enabled=False,
+        initial_pd_ratio=0.9,
+        final_pd_ratio=0.0,
+        curriculum_steps=1000,
+    ):
+        """Enable Residual RL mode with PD control."""
+        self.residual_wrapper = ResidualRLWrapper(
+            wrapper_env=self,
+            base_env=self.unwrapped,
+            pd_kp=pd_kp,
+            pd_kd=pd_kd,
+            residual_scale=residual_scale,
+            pd_ratio=pd_ratio,
+            asset_name=asset_name,
+            curriculum_enabled=curriculum_enabled,
+            initial_pd_ratio=initial_pd_ratio,
+            final_pd_ratio=final_pd_ratio,
+            curriculum_steps=curriculum_steps,
+        )
+        self.residual_mode = True
+
+    def update_residual_curriculum(self, current_iteration):
+        """Update residual wrapper curriculum if enabled."""
+        if hasattr(self, "residual_wrapper"):
+            self.residual_wrapper.update_curriculum(current_iteration)
 
 
     def get_observations(self) -> tuple[torch.Tensor, dict]:

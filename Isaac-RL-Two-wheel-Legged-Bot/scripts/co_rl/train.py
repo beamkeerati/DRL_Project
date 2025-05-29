@@ -172,7 +172,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg | Man
             pd_kd=pd_kd,
             residual_scale=args_cli.residual_scale,
             pd_ratio=args_cli.pd_ratio,
-            asset_name="robot"  # This is the standard name in IsaacLab scenes
+            asset_name="robot",
+            curriculum_enabled=True,  # Enable curriculum
+            initial_pd_ratio=0.9,     # Start with 90% PD control
+            final_pd_ratio=0.0,       # End with pure RL (0% PD)
+            curriculum_steps=2000,    # Decay over 2000 iterations
         )
     
     print("agent_cfg.device: , agent_cfg.device")
